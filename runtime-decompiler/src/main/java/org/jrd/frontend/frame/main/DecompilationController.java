@@ -357,7 +357,7 @@ public class DecompilationController {
                 File folder = folderChooser.getSelectedFile();
                 for (ClassInfo ci : vmInfo.getVmDecompilerStatus().getLoadedClasses()) {
                     try {
-                        byte[] bytes = loadClassBytesByName(ci.getName());
+                        byte[] bytes = loadClassBytesByName(ci.getName(), true);
                         if (bytes != null) {
                             Path path = Paths.get(folder.getAbsolutePath() + "\\" + ci.getName() + ".class");
                             Files.write(path, bytes);
@@ -373,12 +373,21 @@ public class DecompilationController {
     }
 
     private byte[] loadClassBytesByName(String name) {
+        return loadClassBytesByName(name, false);
+    }
+
+    private byte[] loadClassBytesByName(String name, boolean silentError) {
         AgentRequestAction request = createRequest(RequestAction.BYTES, name);
         String response = submitRequest(request);
         if (new TopLevelErrorCandidate(response).isError()) {
-            JOptionPane.showMessageDialog(
-                    mainFrameView.getMainFrame(), response + "\nBytecode couldn't be loaded.", "Error", JOptionPane.ERROR_MESSAGE
-            );
+            if (!silentError) {
+                JOptionPane.showMessageDialog(
+                        mainFrameView.getMainFrame(), response + "\nBytecode couldn't be loaded for class \"" + name + "\"", "Error",
+                        JOptionPane.ERROR_MESSAGE
+                );
+            } else {
+                Logger.getLogger().log(response + "\nBytecode couldn't be loaded for class \"" + name + "\"");
+            }
             return null;
         }
         VmDecompilerStatus vmStatus = vmInfo.getVmDecompilerStatus();
