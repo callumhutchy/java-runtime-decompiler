@@ -83,6 +83,7 @@ public class BytecodeDecompilerView {
     private JPanel classes;
     private JPanel classesToolBar;
     private JButton reloadClassesButton;
+    private JButton dumpAllClassesButton;
     private JCheckBox showInfoCheckBox;
     private JTextField classesSortField;
     private final Color classesSortFieldColor;
@@ -113,6 +114,7 @@ public class BytecodeDecompilerView {
     private ActionListener bytesActionListener;
     private ActionListener classesActionListener;
     private ActionListener initActionListener;
+    private ActionListener dumpAllClassesActionListener;
     private DecompilationController.QuickCompiler compileAction;
     private OverwriteActionListener overwriteActionListener;
     private DecompilationController.AgentApiGenerator popup;
@@ -334,6 +336,9 @@ public class BytecodeDecompilerView {
         reloadClassesButton = ImageButtonFactory.createRefreshButton("Refresh classes");
         reloadClassesButton.addActionListener(e -> classWorker());
 
+        dumpAllClassesButton = ImageButtonFactory.createDumpButton();
+        dumpAllClassesButton.addActionListener(e -> dumpClassesWorker());
+
         showInfoCheckBox = new JCheckBox("Show detailed class info");
         showInfoCheckBox.addActionListener(event -> handleClassInfoSwitching());
 
@@ -389,7 +394,7 @@ public class BytecodeDecompilerView {
 
         gbc.gridx = 1;
         gbc.weightx = 1;
-        classesToolBar.add(Box.createHorizontalGlue(), gbc);
+        classesToolBar.add(dumpAllClassesButton, gbc);
 
         gbc.gridx = 2;
         gbc.weightx = 0;
@@ -835,6 +840,10 @@ public class BytecodeDecompilerView {
         classesActionListener = listener;
     }
 
+    public void setClassDumperActionListener(ActionListener listener) {
+        dumpAllClassesActionListener = listener;
+    }
+
     public void setInitActionListener(ActionListener listener) {
         initActionListener = listener;
     }
@@ -940,6 +949,21 @@ public class BytecodeDecompilerView {
                 try {
                     ActionEvent event = new ActionEvent(this, 2, null);
                     classesActionListener.actionPerformed(event);
+                } catch (Throwable t) {
+                    Logger.getLogger().log(Logger.Level.ALL, t);
+                }
+                return null;
+            }
+        }.execute();
+    }
+
+    private void dumpClassesWorker() {
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                try {
+                    ActionEvent event = new ActionEvent(this, 3, null);
+                    dumpAllClassesActionListener.actionPerformed(event);
                 } catch (Throwable t) {
                     Logger.getLogger().log(Logger.Level.ALL, t);
                 }

@@ -111,6 +111,10 @@ public final class ImageButtonFactory {
         return createButton("compile_24dp.png", "C", "Compile");
     }
 
+    public static JButton createDumpButton() {
+        return createButton("compile_24dp.png", "D", "Dump all loaded classes to specified location.");
+    }
+
     public static JButton createCompileUploadButton() {
         return createButton("upload_24dp.png", "C&U", "Compile and upload");
     }

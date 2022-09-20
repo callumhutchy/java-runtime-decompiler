@@ -29,6 +29,7 @@ import org.jrd.frontend.frame.remote.NewConnectionView;
 import org.jrd.frontend.utility.CommonUtils;
 import org.jrd.frontend.utility.ScreenFinder;
 
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JList;
 import javax.swing.JMenuItem;
@@ -41,6 +42,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -89,6 +92,7 @@ public class DecompilationController {
                 hideLoadingDialog();
             }
         });
+        bytecodeDecompilerView.setClassDumperActionListener(e -> dumpClassBytecode());
         bytecodeDecompilerView.setOverwriteActionListener(new ClassOverwriter());
         bytecodeDecompilerView.setCompileListener(new QuickCompiler());
         bytecodeDecompilerView.setPopup(new AgentApiGenerator());
@@ -330,24 +334,56 @@ public class DecompilationController {
     }
 
     private void loadClassBytecode(String name) {
-        AgentRequestAction request = createRequest(RequestAction.BYTES, name);
-        String response = submitRequest(request);
         String decompiledClass = "";
-        if (new TopLevelErrorCandidate(response).isError()) {
-            JOptionPane.showMessageDialog(
-                    mainFrameView.getMainFrame(), response + "\nBytecode couldn't be loaded.", "Error", JOptionPane.ERROR_MESSAGE
-            );
-            return;
-        }
-        VmDecompilerStatus vmStatus = vmInfo.getVmDecompilerStatus();
-        String bytesInString = vmStatus.getLoadedClassBytes();
-        byte[] bytes = Base64.getDecoder().decode(bytesInString);
+        byte[] bytes = loadClassBytesByName(name);
         try {
             decompiledClass = pluginManager.decompile(bytecodeDecompilerView.getSelectedDecompiler(), name, bytes, null, vmInfo, vmManager);
         } catch (Exception e) {
             Logger.getLogger().log(Logger.Level.ALL, e);
         }
         bytecodeDecompilerView.reloadTextField(name, decompiledClass, bytes);
+    }
+
+    private void dumpClassBytecode() {
+        showLoadingDialog("Dumping classes");
+        AgentRequestAction request =
+                createRequest(bytecodeDecompilerView.doShowClassInfo() ? RequestAction.CLASSES_WITH_INFO : RequestAction.CLASSES, "");
+        String response = submitRequest(request);
+        if ("ok".equals(response)) {
+            JFileChooser folderChooser = new JFileChooser();
+            folderChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            int returnVal = folderChooser.showSaveDialog(bytecodeDecompilerView.getBytecodeDecompilerPanel());
+            if (returnVal == JFileChooser.APPROVE_OPTION) {
+                File folder = folderChooser.getSelectedFile();
+                for (ClassInfo ci : vmInfo.getVmDecompilerStatus().getLoadedClasses()) {
+                    try {
+                        byte[] bytes = loadClassBytesByName(ci.getName());
+                        if (bytes != null) {
+                            Path path = Paths.get(folder.getAbsolutePath() + "\\" + ci.getName() + ".class");
+                            Files.write(path, bytes);
+                        } else {
+                            throw new Exception("Bytes were null");
+                        }
+                    } catch (Exception ex) {
+                        Logger.getLogger().log(ex);
+                    }
+                }
+            }
+        }
+    }
+
+    private byte[] loadClassBytesByName(String name) {
+        AgentRequestAction request = createRequest(RequestAction.BYTES, name);
+        String response = submitRequest(request);
+        if (new TopLevelErrorCandidate(response).isError()) {
+            JOptionPane.showMessageDialog(
+                    mainFrameView.getMainFrame(), response + "\nBytecode couldn't be loaded.", "Error", JOptionPane.ERROR_MESSAGE
+            );
+            return null;
+        }
+        VmDecompilerStatus vmStatus = vmInfo.getVmDecompilerStatus();
+        String bytesInString = vmStatus.getLoadedClassBytes();
+        return Base64.getDecoder().decode(bytesInString);
     }
 
     public String getVm() {
